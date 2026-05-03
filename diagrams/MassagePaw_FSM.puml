@@ -5,43 +5,66 @@ skinparam defaultFontName Monospace
 skinparam defaultFontSize 11
 skinparam shadowing false
 
-title MassagePaw — RobotHandFSM\nSysMLv2 State Machine Diagram
+title MassagePaw — State Machine Diagram (SysMLv2)\nstate def RobotHandFSM  ·  transitions: accept <Event> then <state>
 
-[*] --> IDLE : powerOn\n(init actuators, zero encoders)
+' SysMLv2 state machine notation:
+'   entry; then <state>          initial pseudo-state
+'   accept <Event> then <state>  transition (replaces SysMLv1 "transition to X on Y")
+'   entry action <action>        entry behavior
+'   do    action <action>        do behavior
 
-state IDLE {
-  IDLE : entry / holdPosition
-  IDLE : do    / maintain last pose
+[*] --> idle : entry;\nthen idle
+
+state idle {
+  idle : entry action holdPosition\n      {HoldPosition}
 }
 
-state CALIBRATING {
-  CALIBRATING : entry / drive joints to hard stops\n         record encoder offsets
+state calibrating {
+  calibrating : entry action runCalibration\n              {RunCalibration}
 }
 
-state TELEOP_ACTIVE {
-  TELEOP_ACTIVE : entry / enable control loop\n          arm watchdog (100 ms)
-  TELEOP_ACTIVE : do    / 1. receive CommandPacket\n          2. apply force_scale\n          3. IK solve → joint targets\n          4. PID @ 1 kHz\n          5. stream HandState back
+state teleopActive {
+  teleopActive : entry action enableControl
+  teleopActive : do    action executeCommand\n              {ExecuteTeleOpCommand:\n               applyForceScale →\n               solveIK →\n               runPIDControl}
 }
 
-state SAFETY_HOLD {
-  SAFETY_HOLD : entry / freeze motion\n       alert operator via haptic + audio
+state safetyHold {
+  safetyHold : entry action freezeMotion\n             {FreezeMotion}
 }
 
-state EMERGENCY_STOP {
-  EMERGENCY_STOP : entry / retract to park pose\n          cut motor torque
+state emergencyStop {
+  emergencyStop : entry action retractHand\n               {RetractHand — park pose,\n                cut motor torque}
 }
 
-IDLE           --> CALIBRATING    : CalibrateCmd
-CALIBRATING    --> TELEOP_ACTIVE  : CalibrationComplete
-CALIBRATING    --> IDLE           : CalibrationFailed
+' ── Transitions (SysMLv2: accept <occurrence> then <state>) ───────────────
+idle           --> calibrating    : accept CalibrateCmd
+calibrating    --> teleopActive   : accept CalibrationComplete
+calibrating    --> idle           : accept CalibrationFailed
 
-TELEOP_ACTIVE  --> SAFETY_HOLD    : ForceThresholdExceeded\n[contactForce > 5 N]
-TELEOP_ACTIVE  --> EMERGENCY_STOP : WatchdogTimeout\n[no cmd for 100 ms]\nor EStopSignal
-TELEOP_ACTIVE  --> IDLE           : DisconnectCmd
+teleopActive   --> safetyHold     : accept ForceThresholdExceeded\n[contactForce > 5 N  REQ-002]
+teleopActive   --> emergencyStop  : accept WatchdogTimeout\n[no cmd > 100 ms  REQ-005]
+teleopActive   --> emergencyStop  : accept EStopSignal
+teleopActive   --> idle           : accept DisconnectCmd
 
-SAFETY_HOLD    --> TELEOP_ACTIVE  : OperatorAcknowledge
-SAFETY_HOLD    --> EMERGENCY_STOP : EStopSignal
+safetyHold     --> teleopActive   : accept OperatorAcknowledge
+safetyHold     --> emergencyStop  : accept EStopSignal
 
-EMERGENCY_STOP --> IDLE           : SystemReset
+emergencyStop  --> idle           : accept SystemReset
+
+note right of teleopActive
+  <b>occurrence def events</b>
+  (SysMLv2 v2 replaces
+  SysMLv1 SignalEvent):
+  · ForceThresholdExceeded
+  · WatchdogTimeout
+  · EStopSignal
+  · DisconnectCmd
+end note
+
+note bottom of emergencyStop
+  <b>REQ-005 satisfied by</b>
+  SafetyModule::watchdogPeriod
+  ≤ 100 ms
+end note
 
 @enduml

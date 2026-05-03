@@ -1,35 +1,35 @@
 /**
- * SysMLv2 Model: Dexterous Robot Hand for Teleoperated Head Massage
+ * MassagePaw — SysMLv2 Model
+ * Dexterous Robot Hand for Teleoperated Head Massage
  *
- * Use Case: A human operator remotely controls a dexterous robotic hand
- * to perform therapeutic head massage on a recipient. The system supports
- * low-latency teleoperation with haptic feedback and force-limited safety.
+ * Notation: OMG SysMLv2 beta-2 textual syntax (2023).
+ * Tooling target: SysMLv2 Pilot Implementation / Jupyter kernel.
  */
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PACKAGE STRUCTURE
-// ─────────────────────────────────────────────────────────────────────────────
 
 package MassagePaw {
 
-    // ── Value Types ──────────────────────────────────────────────────────────
+    private import ScalarValues::*;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 1. VALUE TYPES  (attribute def)
+    // ═══════════════════════════════════════════════════════════════════════
 
     package Values {
-
-        attribute def Force       { attribute value : Real; attribute unit = "N"; }
-        attribute def Torque      { attribute value : Real; attribute unit = "Nm"; }
-        attribute def Angle       { attribute value : Real; attribute unit = "deg"; }
-        attribute def AngularVel  { attribute value : Real; attribute unit = "deg/s"; }
-        attribute def Pressure    { attribute value : Real; attribute unit = "kPa"; }
-        attribute def Latency     { attribute value : Real; attribute unit = "ms"; }
-        attribute def Frequency   { attribute value : Real; attribute unit = "Hz"; }
-        attribute def Mass        { attribute value : Real; attribute unit = "kg"; }
-        attribute def Temperature { attribute value : Real; attribute unit = "degC"; }
-        attribute def Voltage     { attribute value : Real; attribute unit = "V"; }
-
+        attribute def Force       { attribute value : Real; attribute unit : String = "N"; }
+        attribute def Torque      { attribute value : Real; attribute unit : String = "Nm"; }
+        attribute def Angle       { attribute value : Real; attribute unit : String = "deg"; }
+        attribute def AngularVel  { attribute value : Real; attribute unit : String = "deg/s"; }
+        attribute def Pressure    { attribute value : Real; attribute unit : String = "kPa"; }
+        attribute def Latency     { attribute value : Real; attribute unit : String = "ms"; }
+        attribute def Frequency   { attribute value : Real; attribute unit : String = "Hz"; }
+        attribute def Mass        { attribute value : Real; attribute unit : String = "kg"; }
+        attribute def Voltage     { attribute value : Real; attribute unit : String = "V"; }
+        attribute def Length      { attribute value : Real; attribute unit : String = "mm"; }
     }
 
-    // ── Enumerations ─────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 2. ENUMERATIONS  (enum def)
+    // ═══════════════════════════════════════════════════════════════════════
 
     package Enumerations {
 
@@ -42,12 +42,18 @@ package MassagePaw {
         }
 
         enum def MassageTechnique {
-            enum EFFLEURAGE;      // long gliding strokes
-            enum PETRISSAGE;      // kneading
-            enum TAPOTEMENT;      // rhythmic tapping
-            enum FRICTION;        // deep circular pressure
-            enum VIBRATION;       // fine oscillatory movement
-            enum SCALP_PRESS;     // static point pressure
+            enum EFFLEURAGE;    // long gliding strokes
+            enum PETRISSAGE;    // kneading
+            enum TAPOTEMENT;    // rhythmic tapping
+            enum FRICTION;      // deep circular pressure
+            enum VIBRATION;     // fine oscillatory movement
+            enum SCALP_PRESS;   // static point pressure
+        }
+
+        enum def NetworkState {
+            enum CONNECTED;
+            enum DEGRADED;
+            enum DISCONNECTED;
         }
 
         enum def FeedbackType {
@@ -57,505 +63,620 @@ package MassagePaw {
             enum AUDIO_CUE;
         }
 
-        enum def NetworkState {
-            enum CONNECTED;
-            enum DEGRADED;
-            enum DISCONNECTED;
-        }
-
     }
 
-    // ── Interfaces ───────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 3. PORT DEFINITIONS  (port def)
+    //    SysMLv2: port def replaces SysMLv1 interface/flow-port definitions.
+    //    ~PortDef denotes the conjugate (provider side).
+    // ═══════════════════════════════════════════════════════════════════════
 
-    package Interfaces {
+    package Ports {
 
-        interface def MechanicalJointIF {
-            in  flow commandAngle  : Values::Angle;
-            out flow actualAngle   : Values::Angle;
-            out flow jointTorque   : Values::Torque;
+        port def MechanicalJointPort {
+            in  flow commandAngle : Values::Angle;
+            out flow actualAngle  : Values::Angle;
+            out flow jointTorque  : Values::Torque;
         }
 
-        interface def HapticFeedbackIF {
-            out flow forceReading  : Values::Force;
-            out flow pressureMap   : Values::Pressure;
+        port def HapticFeedbackPort {
+            out flow forceReading : Values::Force;
+            out flow pressureMap  : Values::Pressure;
         }
 
-        interface def TeleOpCommandIF {
-            in  flow poseCommand   : OperatorPose;
-            out flow systemStatus  : SystemStatus;
-            out flow hapticReturn  : Values::Force;
+        port def TeleOpCommandPort {
+            in  flow poseCommand  : Items::OperatorPose;
+            out flow systemStatus : Items::SystemStatus;
+            out flow hapticReturn : Values::Force;
         }
 
-        interface def NetworkIF {
-            attribute maxLatency    : Values::Latency { :>> value = 20.0; }
-            attribute minBandwidth  : Values::Frequency { :>> value = 1000.0; }
-            in  flow txData : CommandPacket;
-            out flow rxData : StatusPacket;
+        port def NetworkPort {
+            attribute maxLatency   : Values::Latency  { :>> value = 20.0; }
+            attribute minBandwidth : Values::Frequency { :>> value = 1000.0; }
+            in  flow txData : Items::CommandPacket;
+            out flow rxData : Items::StatusPacket;
         }
 
-        interface def SafetyIF {
+        port def SafetyPort {
             out flow forceLimit    : Values::Force;
             out flow emergencyStop : Boolean;
         }
 
     }
 
-    // ── Data Structures ──────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 4. ITEM DEFINITIONS  (item def)
+    //    Items represent data / matter flowing through the system.
+    // ═══════════════════════════════════════════════════════════════════════
 
-    package DataStructures {
+    package Items {
 
         item def FingerJointState {
-            attribute fingerID     : Integer;
-            attribute jointIndex   : Integer;
-            attribute angle        : Values::Angle;
-            attribute velocity     : Values::AngularVel;
-            attribute torque       : Values::Torque;
+            attribute fingerID   : Integer;
+            attribute jointIndex : Integer;
+            attribute angle      : Values::Angle;
+            attribute velocity   : Values::AngularVel;
+            attribute torque     : Values::Torque;
         }
 
         item def HandState {
-            attribute timestamp    : Real;
-            attribute joints       : FingerJointState[15];  // 5 fingers × 3 joints
-            attribute thumbJoints  : FingerJointState[4];   // thumb has extra CMC joint
+            attribute timestamp   : Real;
+            item joints           : FingerJointState[19];   // 4×thumb + 3×4 fingers
             attribute palmPressure : Values::Pressure[16];  // 4×4 tactile array
         }
 
         item def OperatorPose {
-            attribute handPosition : Real[3];    // x, y, z in mm
-            attribute handOrient   : Real[4];    // quaternion w, x, y, z
+            attribute posX         : Values::Length;    // hand position
+            attribute posY         : Values::Length;
+            attribute posZ         : Values::Length;
+            attribute orientW      : Real;              // quaternion
+            attribute orientX      : Real;
+            attribute orientY      : Real;
+            attribute orientZ      : Real;
             attribute fingerAngles : Values::Angle[19];
             attribute gripForce    : Values::Force;
         }
 
         item def CommandPacket {
-            attribute sequenceNum  : Integer;
-            attribute timestamp    : Real;
-            attribute pose         : OperatorPose;
-            attribute technique    : Enumerations::MassageTechnique;
-            attribute forceScale   : Real;        // 0.0–1.0 safety scale factor
+            attribute sequenceNum : Integer;
+            attribute timestamp   : Real;
+            item      pose        : OperatorPose;
+            attribute technique   : Enumerations::MassageTechnique;
+            attribute forceScale  : Real;               // 0.0–1.0 safety multiplier
         }
 
         item def StatusPacket {
-            attribute sequenceNum  : Integer;
-            attribute timestamp    : Real;
-            attribute handState    : HandState;
-            attribute mode         : Enumerations::OperationMode;
-            attribute alerts       : String[*];
+            attribute sequenceNum : Integer;
+            attribute timestamp   : Real;
+            item      handState   : HandState;
+            attribute mode        : Enumerations::OperationMode;
+            attribute batteryPct  : Real;
+            attribute alerts      : String[0..*];
         }
 
         item def SystemStatus {
             attribute mode         : Enumerations::OperationMode;
             attribute networkState : Enumerations::NetworkState;
-            attribute batteryLevel : Real;        // 0–100 %
-            attribute alerts       : String[*];
+            attribute batteryPct   : Real;
+            attribute alerts       : String[0..*];
         }
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PART DEFINITIONS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 5. PART DEFINITIONS  (part def)
+    // ═══════════════════════════════════════════════════════════════════════
 
     package Parts {
 
-        // ── Finger Assembly ──────────────────────────────────────────────────
+        // ── Actuation & Sensing ───────────────────────────────────────────────
 
         part def JointActuator {
-            attribute peakTorque   : Values::Torque   { :>> value = 1.2; }
-            attribute maxAngle     : Values::Angle     { :>> value = 90.0; }
-            attribute posResolution: Values::Angle     { :>> value = 0.05; }
+            attribute peakTorque    : Values::Torque   { :>> value = 1.2; }
+            attribute maxAngle      : Values::Angle    { :>> value = 90.0; }
+            attribute posResolution : Values::Angle    { :>> value = 0.05; }
 
-            port mechanicalOut     : ~Interfaces::MechanicalJointIF;
+            port mechanicalOut : ~Ports::MechanicalJointPort;
         }
 
         part def TactileSensor {
-            attribute resolution   : Integer = 8;      // taxels per cm²
-            attribute maxPressure  : Values::Pressure { :>> value = 100.0; }
-            attribute sampleRate   : Values::Frequency { :>> value = 500.0; }
+            attribute resolution  : Integer = 8;        // taxels per cm²
+            attribute maxPressure : Values::Pressure  { :>> value = 100.0; }
+            attribute sampleRate  : Values::Frequency { :>> value = 500.0; }
 
-            port feedbackOut       : ~Interfaces::HapticFeedbackIF;
+            port feedbackOut : Ports::HapticFeedbackPort;
         }
 
         part def Fingertip {
-            attribute material     : String = "silicone_gel_shore_20A";
-            attribute radius       : Real   = 8.0;     // mm, mimics adult fingertip
+            attribute material : String = "silicone_gel_shore_20A";
+            attribute radius   : Values::Length { :>> value = 8.0; }
 
-            part sensor            : TactileSensor;
+            part sensor : TactileSensor;
         }
 
         part def FingerLink {
-            attribute length       : Real;             // mm
-            attribute mass         : Values::Mass;
+            attribute length : Values::Length;
+            attribute mass   : Values::Mass;
         }
+
+        // ── Finger (3 DoF) ────────────────────────────────────────────────────
 
         part def Finger {
-            attribute fingerID     : Integer;
-            attribute dofCount     : Integer = 3;
+            attribute fingerID : Integer;
 
-            part proxLink          : FingerLink { :>> length = 45.0; :>> mass.value = 0.018; }
-            part midLink           : FingerLink { :>> length = 30.0; :>> mass.value = 0.012; }
-            part distLink          : FingerLink { :>> length = 22.0; :>> mass.value = 0.008; }
-            part tip               : Fingertip;
+            part proxLink : FingerLink { :>> length.value = 45.0; :>> mass.value = 0.018; }
+            part midLink  : FingerLink { :>> length.value = 30.0; :>> mass.value = 0.012; }
+            part distLink : FingerLink { :>> length.value = 22.0; :>> mass.value = 0.008; }
+            part tip      : Fingertip;
 
-            part mcpJoint          : JointActuator;   // metacarpophalangeal
-            part pipJoint          : JointActuator;   // proximal interphalangeal
-            part dipJoint          : JointActuator;   // distal interphalangeal
+            part mcpJoint : JointActuator;   // metacarpophalangeal
+            part pipJoint : JointActuator;   // proximal interphalangeal
+            part dipJoint : JointActuator;   // distal interphalangeal
         }
+
+        // ── Thumb (4 DoF) ─────────────────────────────────────────────────────
 
         part def Thumb {
-            attribute dofCount     : Integer = 4;
+            part proxLink    : FingerLink { :>> length.value = 38.0; :>> mass.value = 0.022; }
+            part distLink    : FingerLink { :>> length.value = 28.0; :>> mass.value = 0.014; }
+            part tip         : Fingertip;
 
-            part proxLink          : FingerLink { :>> length = 38.0; :>> mass.value = 0.022; }
-            part distLink          : FingerLink { :>> length = 28.0; :>> mass.value = 0.014; }
-            part tip               : Fingertip;
-
-            part cmcJoint          : JointActuator;   // carpometacarpal
-            part mcpJoint          : JointActuator;
-            part ipJoint           : JointActuator;
-            part abductJoint       : JointActuator;
+            part cmcJoint    : JointActuator;   // carpometacarpal
+            part mcpJoint    : JointActuator;
+            part ipJoint     : JointActuator;
+            part abductJoint : JointActuator;
         }
 
-        // ── Palm & Wrist ─────────────────────────────────────────────────────
+        // ── Palm & Wrist ──────────────────────────────────────────────────────
 
         part def Palm {
-            attribute length       : Real = 95.0;     // mm
-            attribute width        : Real = 85.0;     // mm
-            attribute mass         : Values::Mass { :>> value = 0.12; }
+            attribute length : Values::Length { :>> value = 95.0; }
+            attribute width  : Values::Length { :>> value = 85.0; }
+            attribute mass   : Values::Mass   { :>> value = 0.12; }
 
-            part tactileArray      : TactileSensor[4]; // 2×2 palm zones
+            part tactileArray : TactileSensor[4];
         }
 
         part def WristAssembly {
-            attribute flexionRange : Values::Angle { :>> value = 80.0; }
+            attribute flexionRange   : Values::Angle { :>> value = 80.0; }
             attribute pronationRange : Values::Angle { :>> value = 180.0; }
 
-            part flexJoint         : JointActuator;
-            part rotJoint          : JointActuator;
+            part flexJoint : JointActuator;
+            part rotJoint  : JointActuator;
         }
 
-        // ── Electronics ──────────────────────────────────────────────────────
+        // ── Electronics ───────────────────────────────────────────────────────
 
         part def MotorController {
-            attribute channels     : Integer = 20;    // 19 DoF + 1 wrist
-            attribute supplyVolt   : Values::Voltage { :>> value = 24.0; }
-            attribute loopRate     : Values::Frequency { :>> value = 1000.0; }
+            attribute channels   : Integer = 20;
+            attribute supplyVolt : Values::Voltage   { :>> value = 24.0; }
+            attribute loopRate   : Values::Frequency { :>> value = 1000.0; }
         }
 
         part def OnboardComputer {
-            attribute cpuCores     : Integer = 8;
-            attribute ram          : Real    = 8.0;   // GB
-            attribute osRealtime   : Boolean = true;
+            attribute cpuCores   : Integer = 8;
+            attribute ram        : Real    = 8.0;    // GB
+            attribute osRealtime : Boolean = true;
 
-            port safetyPort        : Interfaces::SafetyIF;
+            port safetyIn : ~Ports::SafetyPort;
+            port netIn    : ~Ports::NetworkPort;
         }
 
         part def NetworkAdapter {
-            attribute protocol     : String = "UDP_over_5G_or_WiFi6";
-            attribute maxLatency   : Values::Latency { :>> value = 5.0; }
+            attribute protocol   : String = "UDP_over_5G_or_WiFi6";
+            attribute maxLatency : Values::Latency { :>> value = 5.0; }
 
-            port netPort           : ~Interfaces::NetworkIF;
+            port netOut : Ports::NetworkPort;
         }
 
         part def ForceTorqueSensor {
-            attribute dof          : Integer = 6;
-            attribute maxForce     : Values::Force { :>> value = 50.0; }
-            attribute maxTorque    : Values::Torque { :>> value = 5.0; }
+            attribute dof       : Integer = 6;
+            attribute maxForce  : Values::Force  { :>> value = 50.0; }
+            attribute maxTorque : Values::Torque { :>> value = 5.0; }
         }
 
         part def SafetyModule {
-            attribute maxContactForce : Values::Force { :>> value = 5.0; }  // N, scalp safety
+            attribute maxContactForce : Values::Force   { :>> value = 5.0; }
             attribute watchdogPeriod  : Values::Latency { :>> value = 100.0; }
 
-            port safetyOut         : Interfaces::SafetyIF;
+            port safetyOut : Ports::SafetyPort;
         }
 
-        // ── Robot Hand (Physical Assembly) ───────────────────────────────────
+        // ── Robot Hand (physical assembly) ────────────────────────────────────
 
         part def RobotHand {
-            // Kinematic structure
-            part wrist             : WristAssembly;
-            part palm              : Palm;
-            part thumb             : Thumb;
-            part indexFinger       : Finger { :>> fingerID = 1; }
-            part middleFinger      : Finger { :>> fingerID = 2; }
-            part ringFinger        : Finger { :>> fingerID = 3; }
-            part pinkyFinger       : Finger { :>> fingerID = 4; }
+            attribute totalDOF  : Integer    = 20;
+            attribute totalMass : Values::Mass { :>> value = 0.85; }
 
-            // Electronics
-            part motorCtrl         : MotorController;
-            part computer          : OnboardComputer;
-            part netAdapter        : NetworkAdapter;
-            part wristFTS          : ForceTorqueSensor;
-            part safety            : SafetyModule;
+            part wrist        : WristAssembly;
+            part palm         : Palm;
+            part thumb        : Thumb;
+            part indexFinger  : Finger { :>> fingerID = 1; }
+            part middleFinger : Finger { :>> fingerID = 2; }
+            part ringFinger   : Finger { :>> fingerID = 3; }
+            part pinkyFinger  : Finger { :>> fingerID = 4; }
 
-            // Aggregate properties
-            attribute totalDOF     : Integer = 20;    // 4 × (3 fingers) + 4 (thumb) + 2 (wrist) + 2 (abduction)
-            attribute totalMass    : Values::Mass { :>> value = 0.85; }
+            part motorCtrl  : MotorController;
+            part computer   : OnboardComputer;
+            part netAdapter : NetworkAdapter;
+            part wristFTS   : ForceTorqueSensor;
+            part safety     : SafetyModule;
 
-            // Internal connections
-            connect motorCtrl to computer;
-            connect safety.safetyOut to computer.safetyPort;
+            // Bind ports: safety module → computer safety input
+            bind safety.safetyOut = computer.safetyIn;
+            // Bind ports: network adapter → computer network input
+            bind netAdapter.netOut = computer.netIn;
         }
 
-        // ── Operator Glove (Input Device) ────────────────────────────────────
+        // ── Operator Side ─────────────────────────────────────────────────────
 
         part def IMUSensor {
-            attribute dof      : Integer = 9;  // accel + gyro + mag
+            attribute dof        : Integer = 9;   // accel + gyro + mag
             attribute sampleRate : Values::Frequency { :>> value = 200.0; }
         }
 
         part def HapticActuator {
-            attribute type       : String = "LRA_vibrotactile";
-            attribute frequency  : Values::Frequency { :>> value = 200.0; }
-            attribute maxForce   : Values::Force { :>> value = 2.0; }
+            attribute actuatorType : String = "LRA_vibrotactile";
+            attribute frequency    : Values::Frequency { :>> value = 200.0; }
+            attribute maxForce     : Values::Force     { :>> value = 2.0; }
         }
 
         part def OperatorGlove {
-            attribute fingerSensors  : IMUSensor[5];
-            attribute palmIMU        : IMUSensor;
-            attribute hapticArray    : HapticActuator[10];  // 2 per finger
-            attribute wristIMU       : IMUSensor;
+            part fingerIMU   : IMUSensor[5];
+            part palmIMU     : IMUSensor;
+            part wristIMU    : IMUSensor;
+            part hapticArray : HapticActuator[10];
 
-            port commandOut          : Interfaces::TeleOpCommandIF;
+            port commandOut : Ports::TeleOpCommandPort;
         }
 
-        // ── Operator Workstation ─────────────────────────────────────────────
-
         part def Display {
-            attribute type         : String = "stereo_3D_or_VR_headset";
-            attribute refreshRate  : Values::Frequency { :>> value = 90.0; }
+            attribute displayType : String = "stereo_3D_or_VR_headset";
+            attribute refreshRate : Values::Frequency { :>> value = 90.0; }
         }
 
         part def AudioFeedback {
-            attribute channels     : Integer = 2;
+            attribute channels : Integer = 2;
         }
 
         part def OperatorStation {
-            part glove             : OperatorGlove;
-            part display           : Display;
-            part audio             : AudioFeedback;
-            part netAdapter        : NetworkAdapter;
+            part glove      : OperatorGlove;
+            part display    : Display;
+            part audio      : AudioFeedback;
+            part netAdapter : NetworkAdapter;
 
-            port commandOut        : Interfaces::TeleOpCommandIF;
-            port netOut            : Interfaces::NetworkIF;
+            port commandOut : Ports::TeleOpCommandPort;
+            port netOut     : Ports::NetworkPort;
         }
 
-        // ── Communication Link ───────────────────────────────────────────────
+        // ── Communication Link ────────────────────────────────────────────────
 
         part def TeleOpLink {
-            attribute protocol     : String   = "UDP_with_RTP_timestamp";
-            attribute encryption   : String   = "AES_256";
-            attribute maxLatency   : Values::Latency { :>> value = 20.0; }
-            attribute minLatency   : Values::Latency { :>> value = 1.0; }
+            attribute protocol   : String = "UDP_with_RTP_timestamp";
+            attribute encryption : String = "AES_256";
+            attribute maxLatency : Values::Latency { :>> value = 20.0; }
+            attribute minLatency : Values::Latency { :>> value = 1.0; }
         }
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TOP-LEVEL SYSTEM
-    // ─────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 6. CONNECTION DEFINITIONS  (connection def)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    package Connections {
+
+        connection def TeleOpConnection {
+            end operator : Parts::OperatorStation[1];
+            end robot    : Parts::RobotHand[1];
+        }
+
+        connection def NetworkLink {
+            end side1 : Parts::NetworkAdapter[1];
+            end side2 : Parts::NetworkAdapter[1];
+        }
+
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 7. TOP-LEVEL SYSTEM
+    // ═══════════════════════════════════════════════════════════════════════
 
     package System {
 
         part def HeadMassageTeleOpSystem {
 
-            part robotHand   : Parts::RobotHand;
-            part opStation   : Parts::OperatorStation;
-            part commsLink   : Parts::TeleOpLink;
+            part robotHand : Parts::RobotHand;
+            part opStation : Parts::OperatorStation;
+            part commsLink : Parts::TeleOpLink;
 
-            // Command flow: operator → network → hand
-            connect opStation.commandOut to robotHand.computer.safetyPort;
+            // Operator → robot command path
+            connection teleOpConn : Connections::TeleOpConnection {
+                :>> end operator = opStation;
+                :>> end robot    = robotHand;
+            }
 
-            // Network connections
-            connect opStation.netOut to robotHand.netAdapter.netPort;
+            // Network adapters paired through the comms link
+            connection netConn : Connections::NetworkLink {
+                :>> end side1 = opStation.netAdapter;
+                :>> end side2 = robotHand.netAdapter;
+            }
 
         }
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // USE CASES
-    // ─────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 8. USE CASES  (use case def)
+    // ═══════════════════════════════════════════════════════════════════════
 
     package UseCases {
 
         use case def CalibrateSystem {
-            subject sys : System::HeadMassageTeleOpSystem;
+            subject sys    : System::HeadMassageTeleOpSystem;
             actor operator : Person;
-            objective : "Establish joint zero positions and verify haptic feedback loop before contact.";
+            objective doc /* Establish joint zero positions and verify
+                             haptic feedback loop before contact. */
         }
 
         use case def PerformHeadMassage {
-            subject sys : System::HeadMassageTeleOpSystem;
-            actor operator : Person;
-            actor recipient : Person;
-            objective : "Operator wears glove and guides the robot hand through massage strokes on recipient's scalp.";
+            subject sys      : System::HeadMassageTeleOpSystem;
+            actor operator   : Person;
+            actor recipient  : Person;
+            objective doc /* Operator wears glove and guides the robot hand
+                             through massage strokes on recipient's scalp. */
 
-            include use case CalibrateSystem;
+            include use case calibrate : CalibrateSystem;
         }
 
         use case def EmergencyStop {
-            subject sys : System::HeadMassageTeleOpSystem;
+            subject sys    : System::HeadMassageTeleOpSystem;
             actor operator : Person;
-            objective : "Operator or watchdog triggers immediate halt and hand retraction from contact.";
+            objective doc /* Operator or watchdog triggers immediate halt
+                             and hand retraction from contact. */
         }
 
         use case def ForceLimitViolation {
             subject sys : System::HeadMassageTeleOpSystem;
-            objective : "Safety module detects contact force exceeding threshold and overrides command input.";
+            objective doc /* Safety module detects contact force exceeding
+                             threshold and overrides command input. */
 
-            include use case EmergencyStop;
+            include use case estop : EmergencyStop;
         }
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // REQUIREMENTS
-    // ─────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 9. REQUIREMENTS  (requirement def)
+    // ═══════════════════════════════════════════════════════════════════════
 
     package Requirements {
 
         requirement def <'REQ-001'> TeleOpLatency {
-            doc /* End-to-end command latency from glove to robot joint shall be ≤ 20 ms
-                   under normal network conditions to maintain perceptual transparency. */
+            doc /* End-to-end command latency from glove to robot joint shall be
+                   ≤ 20 ms under normal network conditions. */
             subject link : Parts::TeleOpLink;
-            require constraint { link.maxLatency.value <= 20.0 }
+            require constraint latencyOk { link.maxLatency.value <= 20.0 }
         }
 
         requirement def <'REQ-002'> MaxContactForce {
-            doc /* Maximum allowable normal force at any fingertip contact with scalp
-                   shall not exceed 5 N to prevent discomfort or injury. */
+            doc /* Maximum allowable normal force at any fingertip contact with
+                   scalp shall not exceed 5 N to prevent discomfort or injury. */
             subject safety : Parts::SafetyModule;
-            require constraint { safety.maxContactForce.value <= 5.0 }
+            require constraint forceOk { safety.maxContactForce.value <= 5.0 }
         }
 
         requirement def <'REQ-003'> PositionResolution {
-            doc /* Each finger joint actuator shall achieve angular position resolution
-                   of ≤ 0.1° to enable fine massage stroke control. */
+            doc /* Each finger joint actuator shall achieve angular position
+                   resolution of ≤ 0.1° to enable fine massage stroke control. */
             subject joint : Parts::JointActuator;
-            require constraint { joint.posResolution.value <= 0.1 }
+            require constraint resolutionOk { joint.posResolution.value <= 0.1 }
         }
 
         requirement def <'REQ-004'> TactileSampleRate {
             doc /* Tactile sensors shall sample at ≥ 200 Hz to provide real-time
                    pressure feedback to the operator's haptic glove. */
             subject sensor : Parts::TactileSensor;
-            require constraint { sensor.sampleRate.value >= 200.0 }
+            require constraint sampleOk { sensor.sampleRate.value >= 200.0 }
         }
 
         requirement def <'REQ-005'> WatchdogTimeout {
             doc /* Safety watchdog shall trigger an emergency stop if no valid
                    command packet is received within 100 ms. */
             subject safety : Parts::SafetyModule;
-            require constraint { safety.watchdogPeriod.value <= 100.0 }
+            require constraint watchdogOk { safety.watchdogPeriod.value <= 100.0 }
         }
 
         requirement def <'REQ-006'> TotalHandMass {
-            doc /* Total robot hand assembly mass shall not exceed 1.0 kg
-                   to minimise inertia during contact transitions. */
+            doc /* Total robot hand assembly mass shall not exceed 1.0 kg to
+                   minimise inertia during contact transitions. */
             subject hand : Parts::RobotHand;
-            require constraint { hand.totalMass.value <= 1.0 }
+            require constraint massOk { hand.totalMass.value <= 1.0 }
         }
 
         requirement def <'REQ-007'> DOFCount {
             doc /* The robot hand shall provide at least 19 independently
-                   actuated degrees of freedom to replicate human hand dexterity. */
+                   actuated degrees of freedom. */
             subject hand : Parts::RobotHand;
-            require constraint { hand.totalDOF >= 19 }
+            require constraint dofOk { hand.totalDOF >= 19 }
         }
 
         requirement def <'REQ-008'> EncryptedComms {
             doc /* All teleoperation data shall be encrypted in transit using
                    AES-256 or stronger to protect operator and recipient privacy. */
             subject link : Parts::TeleOpLink;
-            require constraint { link.encryption == "AES_256" }
+            require constraint encryptionOk { link.encryption == "AES_256" }
         }
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // STATE MACHINE — Robot Hand Operation
-    // ─────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 10. VERIFICATION  — satisfy relationships
+    // ═══════════════════════════════════════════════════════════════════════
 
-    package StateMachines {
+    package Verification {
+        satisfy Requirements::TeleOpLatency      by Parts::TeleOpLink::maxLatency;
+        satisfy Requirements::MaxContactForce    by Parts::SafetyModule::maxContactForce;
+        satisfy Requirements::PositionResolution by Parts::JointActuator::posResolution;
+        satisfy Requirements::TactileSampleRate  by Parts::TactileSensor::sampleRate;
+        satisfy Requirements::WatchdogTimeout    by Parts::SafetyModule::watchdogPeriod;
+        satisfy Requirements::TotalHandMass      by Parts::RobotHand::totalMass;
+        satisfy Requirements::DOFCount           by Parts::RobotHand::totalDOF;
+        satisfy Requirements::EncryptedComms     by Parts::TeleOpLink::encryption;
+    }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 11. ACTION DEFINITIONS  (action def)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    package Actions {
+
+        action def HoldPosition {
+            in  item currentState   : Items::HandState;
+            out item commandedState : Items::HandState;
+        }
+
+        action def RunCalibration {
+            out attribute success : Boolean;
+        }
+
+        action def ExecuteTeleOpCommand {
+            in  item command   : Items::CommandPacket;
+            out item handState : Items::HandState;
+
+            // Decomposed sub-actions
+            action applyForceScale {
+                in  attribute rawScale  : Real;
+                in  attribute gripForce : Values::Force;
+                out attribute safeScale : Real;
+            }
+
+            action solveIK {
+                in  item pose          : Items::OperatorPose;
+                out attribute targets  : Values::Angle[19];
+            }
+
+            action runPIDControl {
+                in  attribute targets  : Values::Angle[19];
+                out attribute actuals  : Values::Angle[19];
+                out attribute torques  : Values::Torque[19];
+            }
+
+            // Action data flows
+            flow from command to applyForceScale.rawScale;
+            flow from applyForceScale.safeScale to solveIK.pose;
+            flow from solveIK.targets to runPIDControl.targets;
+        }
+
+        action def FreezeMotion {
+            in  item currentState : Items::HandState;
+            out item heldState    : Items::HandState;
+        }
+
+        action def RetractHand {
+            out item parkState : Items::HandState;
+        }
+
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 12. STATE MACHINE  (state def)
+    //     SysMLv2: transitions use  accept <Event> then <targetState>
+    //     Initial transition:       entry; then <initialState>
+    //     Events are occurrence def
+    // ═══════════════════════════════════════════════════════════════════════
+
+    package States {
+
+        // ── Event (occurrence) definitions ────────────────────────────────────
+        occurrence def CalibrateCmd;
+        occurrence def CalibrationComplete;
+        occurrence def CalibrationFailed;
+        occurrence def ForceThresholdExceeded;
+        occurrence def WatchdogTimeout;
+        occurrence def EStopSignal;
+        occurrence def DisconnectCmd;
+        occurrence def OperatorAcknowledge;
+        occurrence def SystemReset;
+
+        // ── Robot Hand FSM ────────────────────────────────────────────────────
         state def RobotHandFSM {
 
-            entry action powerOn   { /* initialise actuators, zero encoders */ }
+            entry; then idle;
 
-            state idle : Enumerations::OperationMode::IDLE {
-                entry action holdPosition { /* maintain last commanded pose */ }
-                transition to calibrating on received(CalibrateCmd);
+            state idle {
+                entry action holdPosition : Actions::HoldPosition;
+                accept CalibrateCmd then calibrating;
             }
 
-            state calibrating : Enumerations::OperationMode::CALIBRATING {
-                entry action runCalibration { /* drive joints to hard stops, record offsets */ }
-                transition to teleopActive  on CalibrationComplete;
-                transition to idle          on CalibrationFailed;
+            state calibrating {
+                entry action runCalibration : Actions::RunCalibration;
+                accept CalibrationComplete then teleopActive;
+                accept CalibrationFailed   then idle;
             }
 
-            state teleopActive : Enumerations::OperationMode::TELEOP_ACTIVE {
-                entry action enableControl { /* open control loop, arm watchdog */ }
-                do    action executeCommand {
-                    /* 1. Receive CommandPacket from network adapter
-                       2. Apply safety scale factor
-                       3. IK solve → joint angle targets
-                       4. PID position control at 1 kHz
-                       5. Stream HandState back to operator */
-                }
-                transition to safetyHold on ForceThresholdExceeded;
-                transition to emergencyStop on WatchdogTimeout or EStopSignal;
-                transition to idle on DisconnectCmd;
+            state teleopActive {
+                entry action enableControl;
+                do    action executeCommand : Actions::ExecuteTeleOpCommand;
+                accept ForceThresholdExceeded then safetyHold;
+                accept WatchdogTimeout        then emergencyStop;
+                accept EStopSignal            then emergencyStop;
+                accept DisconnectCmd          then idle;
             }
 
-            state safetyHold : Enumerations::OperationMode::SAFETY_HOLD {
-                entry action freezeMotion { /* hold position, alert operator */ }
-                transition to teleopActive on OperatorAcknowledge;
-                transition to emergencyStop on EStopSignal;
+            state safetyHold {
+                entry action freezeMotion : Actions::FreezeMotion;
+                accept OperatorAcknowledge then teleopActive;
+                accept EStopSignal         then emergencyStop;
             }
 
-            state emergencyStop : Enumerations::OperationMode::EMERGENCY_STOP {
-                entry action retractHand { /* move to safe park pose, cut motor torque */ }
-                transition to idle on SystemReset;
+            state emergencyStop {
+                entry action retractHand : Actions::RetractHand;
+                accept SystemReset then idle;
             }
 
         }
 
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ANALYSIS — Safety & Performance Constraints
-    // ─────────────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // 13. ANALYSIS  (analysis def)
+    //     analysis def is a specialisation of action def in SysMLv2.
+    // ═══════════════════════════════════════════════════════════════════════
 
     package Analysis {
 
         analysis def LatencyBudget {
+            subject sys : System::HeadMassageTeleOpSystem;
+            return attribute totalMs : Values::Latency;
             doc /* Round-trip latency budget (ms):
-                   Glove IMU → host USB:         2
-                   Pose computation:             1
-                   Network (5G / WiFi6, LAN):   10
-                   Network jitter buffer:         3
-                   Robot IK solve:               1
-                   Motor command dispatch:        1
-                   Tactile → haptic return:       5
-                   ─────────────────────────────
-                   Total budget:                23 ms   (target ≤ 20 ms via LAN path)
+                   Glove IMU → host USB ............  2
+                   Pose computation ................  1
+                   Network (5G / WiFi6 / LAN) .....  10
+                   Network jitter buffer ...........  3
+                   Robot IK solve ..................  1
+                   Motor command dispatch ..........  1
+                   Tactile → haptic return .........  5
+                   ─────────────────────────────────
+                   Total ..........................  23 ms
+                   Target (LAN path) ≤ 20 ms  →  REQ-001 satisfied on LAN.
             */
         }
 
         analysis def ForceSafetyMargin {
+            subject safety : Parts::SafetyModule;
+            return attribute margin : Real;
             doc /* Scalp tissue tolerance: ~8–12 N sustained, ~20 N peak.
                    System force limit: 5 N (REQ-002).
                    Safety margin: ×1.6–2.4 — adequate for therapeutic massage.
-                   Force sensor resolution: 0.05 N — sufficient for closed-loop control.
             */
         }
 
         analysis def KinematicWorkspace {
-            doc /* Robot finger workspace is sized to match adult-hand anthropometry
-                   (ISO 15743 hand measurement standards).
-                   Fingertip radius 8 mm mimics median adult fingertip.
-                   Wrist ±80° flexion/extension and ±90° pronation/supination
-                   cover all scalp surface approaches from a single mount point.
+            subject hand : Parts::RobotHand;
+            doc /* Robot finger workspace sized to ISO 15743 adult-hand anthropometry.
+                   Fingertip radius 8 mm. Wrist ±80° flex/ext, ±90° pron/supination.
+                   Covers full scalp surface approach from a fixed mount point.
             */
         }
 

@@ -5,36 +5,54 @@ skinparam defaultFontName Monospace
 skinparam defaultFontSize 11
 skinparam shadowing false
 
-title MassagePaw — Use Case Diagram
+title MassagePaw — Use Case Diagram (SysMLv2)\nuse case def — actors are «actor» features of the subject
+
+' SysMLv2 use case syntax used in model:
+'   use case def <Name> { subject, actor, objective doc, include use case <name>:<UC> }
+' Actors appear as classifier roles, not standalone classifier boxes.
 
 left to right direction
 
-actor Operator  as op
-actor Recipient as re
+actor "operator : Person"  as Op
+actor "recipient : Person" as Re
 
-rectangle "HeadMassageTeleOpSystem" {
-  usecase "Calibrate System"              as UC1
-  usecase "Perform Head Massage"          as UC2
-  usecase "Emergency Stop"               as UC3
-  usecase "Force Limit Violation\n(auto)" as UC4
-  usecase "Adjust Technique\n(parameter)" as UC5
+rectangle "subject: HeadMassageTeleOpSystem" {
+
+  usecase "CalibrateSystem\n«use case def»\nObjective: Establish joint zeros\nand verify haptic loop." as UC1
+
+  usecase "PerformHeadMassage\n«use case def»\nObjective: Operator guides robot\nhand through scalp massage strokes.\ninclude use case calibrate:CalibrateSystem" as UC2
+
+  usecase "EmergencyStop\n«use case def»\nObjective: Halt and retract\nhand from contact." as UC3
+
+  usecase "ForceLimitViolation\n«use case def»\nObjective: Safety module detects\nforce > 5 N, overrides command.\ninclude use case estop:EmergencyStop" as UC4
+
+  usecase "AdjustTechnique\n(via ROS2 param)\nmassage_technique parameter" as UC5
 }
 
-op --> UC1
-op --> UC2
-op --> UC3
-op --> UC5
-re --> UC2
+Op  --> UC1
+Op  --> UC2
+Op  --> UC3
+Op  --> UC5
+Re  --> UC2
 
-UC2 .> UC1 : <<include>>
-UC4 .> UC3 : <<include>>
-UC2 ..> UC4 : <<extend>>\n[force > 5 N]
+UC2 .> UC1 : <<include>>\ncalibrate : CalibrateSystem
+UC4 .> UC3 : <<include>>\nestop : EmergencyStop
+UC2 ..> UC4 : <<extend>>\n[contactForce > 5 N]
 UC2 ..> UC5 : <<extend>>
 
-note top of UC4
-  Triggered automatically
-  by SafetyModule node
-  (SysMLv2 REQ-002)
+note right of UC4
+  Triggered automatically by
+  SafetyModule  (no actor input).
+  Maps to FSM: accept
+  ForceThresholdExceeded
+  then safetyHold
+end note
+
+note right of UC3
+  Actor OR watchdog can trigger.
+  Maps to FSM: accept
+  EStopSignal / WatchdogTimeout
+  then emergencyStop
 end note
 
 @enduml

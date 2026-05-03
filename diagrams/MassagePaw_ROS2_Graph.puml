@@ -5,74 +5,80 @@ skinparam defaultFontName Monospace
 skinparam defaultFontSize 11
 skinparam shadowing false
 
-title MassagePaw — ROS2 Node / Topic Graph\n(SysMLv2 ↔ ROS2 Bridge)
+title MassagePaw — ROS2 Node / Topic Graph (SysMLv2 Bridge)\n@ROS2Node / @ROS2Topic / @ROS2Service  metadata bindings
+
+' Stereotypes match metadata def names in SysMLv2_ROS2_Bridge.sysml
 
 skinparam component {
-  BackgroundColor<<node>>  #D6EAF8
-  BorderColor<<node>>      #2471A3
-  BackgroundColor<<topic>> #D5F5E3
-  BorderColor<<topic>>     #1E8449
-  BackgroundColor<<service>> #FEF9E7
-  BorderColor<<service>>   #B7950B
+  BackgroundColor<<ROS2Node>>    #D6EAF8
+  BorderColor<<ROS2Node>>        #2471A3
+  BackgroundColor<<ROS2Topic>>   #D5F5E3
+  BorderColor<<ROS2Topic>>       #1E8449
+  BackgroundColor<<ROS2Service>> #FEF9E7
+  BorderColor<<ROS2Service>>     #B7950B
+  BackgroundColor<<external>>    #F2F3F4
+  BorderColor<<external>>        #717D7E
 }
 
-component "operator_station_node\n[SysML: OperatorStation]" <<node>> as OpNode
-component "safety_module_node\n[SysML: SafetyModule]" <<node>> as SafeNode
-component "robot_hand_node\n[SysML: RobotHand]" <<node>> as RobotNode
-component "robot_state_publisher\n[standard ROS2]" <<node>> as RSP
-component "rviz2\n[visualisation]" <<node>> as Rviz
-component "gazebo\n[physics sim]" <<node>> as Gazebo
+' ── ROS2 nodes (@ROS2Node bindings) ───────────────────────────────────────
+component "operator_station_node\n@ROS2Node\npart def ROS2_OperatorStation\n:> OperatorStation" <<ROS2Node>> as OpNode
+component "safety_module_node\n@ROS2Node\npart def ROS2_SafetyModule\n:> SafetyModule" <<ROS2Node>> as SafeNode
+component "robot_hand_node\n@ROS2Node\npart def ROS2_RobotHand\n:> RobotHand" <<ROS2Node>> as RobNode
 
-component "/teleop/command\nmassage_paw/CommandPacket · 200 Hz" <<topic>> as T1
-component "/teleop/command_safe\nmassage_paw/CommandPacket · 200 Hz" <<topic>> as T2
-component "/robot_hand/status\nmassage_paw/StatusPacket · 100 Hz" <<topic>> as T3
-component "/robot_hand/joint_states\nsensor_msgs/JointState · 200 Hz" <<topic>> as T4
-component "/tf  /tf_static" <<topic>> as T5
-component "/operator/pose\ngeometry_msgs/PoseStamped · 200 Hz" <<topic>> as T6
+component "robot_state_publisher" <<external>> as RSP
+component "rviz2" <<external>> as Rviz
+component "gazebo / gz_ros2_control" <<external>> as Gz
 
-component "/robot_hand/set_mode\nmassage_paw/srv/SetMode" <<service>> as S1
+' ── Topics (@ROS2Topic bindings) ──────────────────────────────────────────
+component "/teleop/command\n@ROS2Topic → ROS2_TeleOpCommandPort\n:> TeleOpCommandPort\nCommandPacket · reliable · 200 Hz" <<ROS2Topic>> as T1
 
-' Publish
-OpNode   --> T1
-T1       --> SafeNode
-SafeNode --> T2
-T2       --> RobotNode
+component "/teleop/command_safe\n@ROS2Topic → ROS2_TeleOpCommandSafePort\n:> TeleOpCommandPort\nCommandPacket · reliable · 200 Hz" <<ROS2Topic>> as T2
 
-' Status back
-RobotNode --> T3
-T3        --> OpNode
-T3        --> SafeNode
+component "/robot_hand/status\n@ROS2Topic → ROS2_HandStatusPort\n:> TeleOpCommandPort\nStatusPacket · reliable · 100 Hz" <<ROS2Topic>> as T3
 
-' Joint states
-RobotNode --> T4
-T4        --> RSP
-T4        --> Gazebo
+component "/robot_hand/joint_states\n@ROS2Topic → ROS2_JointStatePort\n:> MechanicalJointPort\nsensor_msgs/JointState · sensor_data · 200 Hz" <<ROS2Topic>> as T4
 
-' TF
-RSP --> T5
-T5  --> Rviz
+component "/tf  /tf_static" <<ROS2Topic>> as T5
 
-' Operator glove input
-T6 --> OpNode
+' ── Service (@ROS2Service binding) ────────────────────────────────────────
+component "/robot_hand/set_mode\n@ROS2Service → ROS2_ModeTransitionPort\n:> SafetyPort\nmassage_paw/srv/SetMode" <<ROS2Service>> as S1
 
-' Mode service
-SafeNode --> S1 : call (ESTOP)
-OpNode   --> S1 : call (mode change)
-S1       --> RobotNode
+' ── Data flows ────────────────────────────────────────────────────────────
+OpNode   --> T1        : publish
+T1       --> SafeNode  : subscribe
+SafeNode --> T2        : publish (force_scale clamped)
+T2       --> RobNode   : subscribe
+
+RobNode  --> T3        : publish
+T3       --> OpNode    : subscribe
+T3       --> SafeNode  : subscribe (watchdog)
+
+RobNode  --> T4        : publish
+T4       --> RSP       : subscribe
+T4       --> Gz        : bridge
+
+RSP      --> T5        : publish
+T5       --> Rviz      : subscribe
+
+' ── Service calls ─────────────────────────────────────────────────────────
+OpNode   --> S1        : call (mode transition)
+SafeNode --> S1        : call (ESTOP — watchdog/force)
+S1       --> RobNode   : serve (FSM transition)
 
 note bottom of T2
-  <b>Safety-gated</b>:
-  force_scale clamped so
-  grip_force × scale ≤ 5 N
-  (REQ-002)
+  <b>REQ-002</b> enforced here:
+  @ROS2Param robot_hand.max_contact_force_n = 5.0
+  Maps to SafetyModule::maxContactForce
 end note
 
 note bottom of S1
-  FSM transitions:
-  IDLE → CALIBRATING
-  CALIBRATING → TELEOP_ACTIVE
-  TELEOP_ACTIVE → EMERGENCY_STOP
-  etc.
+  FSM accept-then transitions
+  served by robot_hand_node:
+    IDLE → CALIBRATING
+    CALIBRATING → TELEOP_ACTIVE
+    TELEOP_ACTIVE → EMERGENCY_STOP
+    SAFETY_HOLD → TELEOP_ACTIVE
+    EMERGENCY_STOP → IDLE
 end note
 
 @enduml
