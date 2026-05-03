@@ -1,0 +1,6 @@
+# Request operator mode transition (maps to SysMLv2 RobotHandFSM transitions)
+int32 target_mode   # use StatusPacket mode constants
+---
+bool  success
+string message
+int32 current_mode

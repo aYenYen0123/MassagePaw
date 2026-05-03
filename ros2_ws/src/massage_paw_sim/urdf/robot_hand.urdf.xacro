@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<!--
+  URDF/Xacro model for MassagePaw robot hand.
+  Joint names match JOINT_NAMES list in robot_hand_node.py and
+  SysMLv2 part structure (Parts::RobotHand, Parts::Finger, Parts::Thumb).
+
+  Dimensions sourced from SysMLv2 FingerLink length/mass attributes.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="massage_paw_hand">
+
+  <xacro:property name="PI"          value="3.14159265358979"/>
+  <xacro:property name="palm_l"      value="0.095"/>   <!-- SysMLv2 Palm.length mm→m -->
+  <xacro:property name="palm_w"      value="0.085"/>
+  <xacro:property name="palm_h"      value="0.025"/>
+  <xacro:property name="prox_l"      value="0.045"/>   <!-- Finger.proxLink.length -->
+  <xacro:property name="mid_l"       value="0.030"/>
+  <xacro:property name="dist_l"      value="0.022"/>
+  <xacro:property name="tip_r"       value="0.008"/>   <!-- Fingertip.radius -->
+  <xacro:property name="link_w"      value="0.016"/>
+  <xacro:property name="joint_damping"  value="0.01"/>
+  <xacro:property name="joint_friction" value="0.005"/>
+
+  <!-- ── Materials ─────────────────────────────────────────────────────── -->
+  <material name="aluminium"><color rgba="0.75 0.75 0.75 1.0"/></material>
+  <material name="silicone"> <color rgba="0.9  0.85 0.7  1.0"/></material>
+  <material name="black">    <color rgba="0.1  0.1  0.1  1.0"/></material>
+
+  <!-- ── Base / wrist ──────────────────────────────────────────────────── -->
+  <link name="base_link"/>
+
+  <link name="wrist_link">
+    <visual>
+      <geometry><box size="0.06 0.06 0.04"/></geometry>
+      <material name="aluminium"/>
+    </visual>
+    <inertial>
+      <mass value="0.08"/>
+      <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+    </inertial>
+  </link>
+
+  <!-- wrist_flex joint -->
+  <joint name="wrist_flex" type="revolute">
+    <parent link="base_link"/>
+    <child  link="wrist_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis   xyz="0 1 0"/>
+    <limit  lower="-1.396" upper="1.396" effort="5.0" velocity="2.0"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+  </joint>
+
+  <link name="palm_link">
+    <visual>
+      <geometry><box size="${palm_l} ${palm_w} ${palm_h}"/></geometry>
+      <material name="aluminium"/>
+    </visual>
+    <inertial>
+      <mass value="0.12"/>
+      <inertia ixx="3e-4" ixy="0" ixz="0" iyy="4e-4" iyz="0" izz="2e-4"/>
+    </inertial>
+  </link>
+
+  <!-- wrist_rot joint -->
+  <joint name="wrist_rot" type="revolute">
+    <parent link="wrist_link"/>
+    <child  link="palm_link"/>
+    <origin xyz="0 0 0.04" rpy="0 0 0"/>
+    <axis   xyz="0 0 1"/>
+    <limit  lower="-1.5708" upper="1.5708" effort="5.0" velocity="2.0"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+  </joint>
+
+  <!-- ── Finger macro ───────────────────────────────────────────────────── -->
+  <xacro:macro name="finger" params="name x_off y_off mcp_name pip_name dip_name">
+
+    <link name="${name}_prox">
+      <visual>
+        <origin xyz="0 0 ${prox_l/2}"/>
+        <geometry><box size="${link_w} ${link_w} ${prox_l}"/></geometry>
+        <material name="aluminium"/>
+      </visual>
+      <inertial><mass value="0.018"/>
+        <inertia ixx="2e-5" ixy="0" ixz="0" iyy="2e-5" iyz="0" izz="5e-6"/>
+      </inertial>
+    </link>
+
+    <joint name="${mcp_name}" type="revolute">
+      <parent link="palm_link"/>
+      <child  link="${name}_prox"/>
+      <origin xyz="${x_off} ${y_off} ${palm_h/2}"/>
+      <axis   xyz="0 1 0"/>
+      <limit  lower="-0.349" upper="1.571" effort="1.2" velocity="3.0"/>
+      <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+    </joint>
+
+    <link name="${name}_mid">
+      <visual>
+        <origin xyz="0 0 ${mid_l/2}"/>
+        <geometry><box size="${link_w} ${link_w} ${mid_l}"/></geometry>
+        <material name="aluminium"/>
+      </visual>
+      <inertial><mass value="0.012"/>
+        <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="3e-6"/>
+      </inertial>
+    </link>
+
+    <joint name="${pip_name}" type="revolute">
+      <parent link="${name}_prox"/>
+      <child  link="${name}_mid"/>
+      <origin xyz="0 0 ${prox_l}"/>
+      <axis   xyz="0 1 0"/>
+      <limit  lower="0" upper="1.745" effort="1.2" velocity="3.0"/>
+      <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+    </joint>
+
+    <link name="${name}_dist">
+      <visual>
+        <origin xyz="0 0 ${dist_l/2}"/>
+        <geometry><box size="${link_w} ${link_w} ${dist_l}"/></geometry>
+        <material name="aluminium"/>
+      </visual>
+      <inertial><mass value="0.008"/>
+        <inertia ixx="5e-6" ixy="0" ixz="0" iyy="5e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+    </link>
+
+    <joint name="${dip_name}" type="revolute">
+      <parent link="${name}_mid"/>
+      <child  link="${name}_dist"/>
+      <origin xyz="0 0 ${mid_l}"/>
+      <axis   xyz="0 1 0"/>
+      <limit  lower="0" upper="1.396" effort="1.2" velocity="3.0"/>
+      <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+    </joint>
+
+    <link name="${name}_tip">
+      <visual>
+        <geometry><sphere radius="${tip_r}"/></geometry>
+        <material name="silicone"/>
+      </visual>
+      <inertial><mass value="0.004"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+    </link>
+
+    <joint name="${name}_tip_fixed" type="fixed">
+      <parent link="${name}_dist"/>
+      <child  link="${name}_tip"/>
+      <origin xyz="0 0 ${dist_l}"/>
+    </joint>
+
+  </xacro:macro>
+
+  <!-- ── Instantiate four fingers ──────────────────────────────────────── -->
+  <xacro:finger name="index"  x_off="0.038" y_off="0.025"
+                mcp_name="index_mcp"  pip_name="index_pip"  dip_name="index_dip"/>
+  <xacro:finger name="middle" x_off="0.038" y_off="0.008"
+                mcp_name="middle_mcp" pip_name="middle_pip" dip_name="middle_dip"/>
+  <xacro:finger name="ring"   x_off="0.038" y_off="-0.008"
+                mcp_name="ring_mcp"   pip_name="ring_pip"   dip_name="ring_dip"/>
+  <xacro:finger name="pinky"  x_off="0.038" y_off="-0.025"
+                mcp_name="pinky_mcp"  pip_name="pinky_pip"  dip_name="pinky_dip"/>
+
+  <!-- ── Thumb (4 DoF) ─────────────────────────────────────────────────── -->
+  <link name="thumb_prox">
+    <visual>
+      <origin xyz="0 0 ${0.038/2}"/>
+      <geometry><box size="${link_w} ${link_w} 0.038"/></geometry>
+      <material name="aluminium"/>
+    </visual>
+    <inertial><mass value="0.022"/>
+      <inertia ixx="2e-5" ixy="0" ixz="0" iyy="2e-5" iyz="0" izz="5e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="thumb_cmc" type="revolute">
+    <parent link="palm_link"/>
+    <child  link="thumb_prox"/>
+    <origin xyz="-0.01 0.042 0" rpy="0 0 ${PI/4}"/>
+    <axis   xyz="1 0 0"/>
+    <limit  lower="-0.524" upper="0.524" effort="1.2" velocity="3.0"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+  </joint>
+
+  <link name="thumb_dist">
+    <visual>
+      <origin xyz="0 0 ${0.028/2}"/>
+      <geometry><box size="${link_w} ${link_w} 0.028"/></geometry>
+      <material name="aluminium"/>
+    </visual>
+    <inertial><mass value="0.014"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="3e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="thumb_mcp" type="revolute">
+    <parent link="thumb_prox"/>
+    <child  link="thumb_dist"/>
+    <origin xyz="0 0 0.038"/>
+    <axis   xyz="0 1 0"/>
+    <limit  lower="-0.349" upper="1.047" effort="1.2" velocity="3.0"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+  </joint>
+
+  <link name="thumb_tip_link">
+    <visual>
+      <geometry><sphere radius="${tip_r}"/></geometry>
+      <material name="silicone"/>
+    </visual>
+    <inertial><mass value="0.004"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="thumb_ip" type="revolute">
+    <parent link="thumb_dist"/>
+    <child  link="thumb_tip_link"/>
+    <origin xyz="0 0 0.028"/>
+    <axis   xyz="0 1 0"/>
+    <limit  lower="0" upper="1.396" effort="1.2" velocity="3.0"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+  </joint>
+
+  <!-- thumb abduction as a revolute about Z -->
+  <joint name="thumb_abduct" type="revolute">
+    <parent link="palm_link"/>
+    <child  link="base_link"/>   <!-- virtual — satisfies URDF tree; real abduction via thumb_cmc -->
+    <origin xyz="0 0 0"/>
+    <axis   xyz="0 0 1"/>
+    <limit  lower="-0.785" upper="0.785" effort="1.2" velocity="2.0"/>
+    <dynamics damping="${joint_damping}" friction="${joint_friction}"/>
+  </joint>
+
+</robot>

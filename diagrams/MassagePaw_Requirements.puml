@@ -1,0 +1,45 @@
+@startuml MassagePaw_Requirements
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Monospace
+skinparam defaultFontSize 11
+skinparam shadowing false
+
+title MassagePaw — Requirements Diagram
+
+skinparam rectangle {
+  BackgroundColor<<req>> #E8F4FD
+  BorderColor<<req>> #2980B9
+  FontColor<<req>> #1A252F
+  BackgroundColor<<satisfy>> #EAFAF1
+  BorderColor<<satisfy>> #27AE60
+}
+
+rectangle "REQ-001\nTeleOp Latency\nlatency ≤ 20 ms" <<req>> as R1
+rectangle "REQ-002\nMax Contact Force\nforce ≤ 5 N" <<req>> as R2
+rectangle "REQ-003\nPosition Resolution\nresolution ≤ 0.1°" <<req>> as R3
+rectangle "REQ-004\nTactile Sample Rate\n≥ 200 Hz" <<req>> as R4
+rectangle "REQ-005\nWatchdog Timeout\n≤ 100 ms" <<req>> as R5
+rectangle "REQ-006\nHand Mass\n≤ 1.0 kg" <<req>> as R6
+rectangle "REQ-007\nDoF Count\n≥ 19" <<req>> as R7
+rectangle "REQ-008\nEncrypted Comms\nAES-256" <<req>> as R8
+
+rectangle "TeleOpLink\nmaxLatency = 20 ms" <<satisfy>> as P1
+rectangle "SafetyModule\nmaxContactForce = 5 N" <<satisfy>> as P2
+rectangle "JointActuator\nposResolution = 0.05°" <<satisfy>> as P3
+rectangle "TactileSensor\nsampleRate = 500 Hz" <<satisfy>> as P4
+rectangle "SafetyModule\nwatchdogPeriod = 100 ms" <<satisfy>> as P5
+rectangle "RobotHand\ntotalMass = 0.85 kg" <<satisfy>> as P6
+rectangle "RobotHand\ntotalDOF = 20" <<satisfy>> as P7
+rectangle "TeleOpLink\nencryption = AES_256" <<satisfy>> as P8
+
+R1 <.. P1 : <<satisfy>>
+R2 <.. P2 : <<satisfy>>
+R3 <.. P3 : <<satisfy>>
+R4 <.. P4 : <<satisfy>>
+R5 <.. P5 : <<satisfy>>
+R6 <.. P6 : <<satisfy>>
+R7 <.. P7 : <<satisfy>>
+R8 <.. P8 : <<satisfy>>
+
+@enduml

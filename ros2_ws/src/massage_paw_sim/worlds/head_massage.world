@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo Ignition world for MassagePaw teleoperation simulation.
+  Contains:
+    - Ground plane + ambient lighting
+    - Simplified human head model (sphere approximation, r=10 cm)
+    - Robot hand model spawned from URDF
+    - Physics tuned for low-friction fingertip contact
+-->
+<sdf version="1.9">
+  <world name="head_massage_world">
+
+    <physics name="default_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>50</iters>
+          <sor>1.3</sor>
+        </solver>
+        <constraints>
+          <cfm>0.0</cfm>
+          <erp>0.2</erp>
+          <contact_max_correcting_vel>100.0</contact_max_correcting_vel>
+          <contact_surface_layer>0.001</contact_surface_layer>
+        </constraints>
+      </ode>
+    </physics>
+
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <direction>-0.5 0.5 -1</direction>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>10 10</size></plane></geometry>
+          <material>
+            <ambient>0.6 0.6 0.6 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Simplified human head: sphere r=10 cm at table height -->
+    <model name="human_head">
+      <static>true</static>
+      <pose>0 0 0.6 0 0 0</pose>
+      <link name="head_link">
+        <collision name="skull_collision">
+          <geometry><sphere><radius>0.10</radius></sphere></geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>1000.0</kp>    <!-- soft scalp compliance -->
+                <kd>50.0</kd>
+              </ode>
+            </contact>
+            <friction>
+              <ode><mu>0.5</mu><mu2>0.5</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="skull_visual">
+          <geometry><sphere><radius>0.10</radius></sphere></geometry>
+          <material>
+            <ambient>0.85 0.75 0.65 1</ambient>
+            <diffuse>0.85 0.75 0.65 1</diffuse>
+          </material>
+        </visual>
+        <inertial>
+          <mass>4.5</mass>
+          <inertia>
+            <ixx>0.018</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>0.018</iyy><iyz>0</iyz><izz>0.018</izz>
+          </inertia>
+        </inertial>
+      </link>
+    </model>
+
+    <!-- Robot hand spawn point — positioned above head -->
+    <!-- Actual URDF is loaded by robot_state_publisher via ros2_control / gz_ros2_control -->
+    <include>
+      <uri>model://massage_paw_hand</uri>
+      <pose>0 0 0.85 0 0 0</pose>
+      <name>massage_paw_hand</name>
+    </include>
+
+    <!-- Gazebo ROS2 bridge plugin -->
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find massage_paw)/config/hand_params.yaml</parameters>
+    </plugin>
+
+  </world>
+</sdf>

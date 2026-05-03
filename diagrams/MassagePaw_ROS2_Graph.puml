@@ -1,0 +1,78 @@
+@startuml MassagePaw_ROS2_Graph
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Monospace
+skinparam defaultFontSize 11
+skinparam shadowing false
+
+title MassagePaw — ROS2 Node / Topic Graph\n(SysMLv2 ↔ ROS2 Bridge)
+
+skinparam component {
+  BackgroundColor<<node>>  #D6EAF8
+  BorderColor<<node>>      #2471A3
+  BackgroundColor<<topic>> #D5F5E3
+  BorderColor<<topic>>     #1E8449
+  BackgroundColor<<service>> #FEF9E7
+  BorderColor<<service>>   #B7950B
+}
+
+component "operator_station_node\n[SysML: OperatorStation]" <<node>> as OpNode
+component "safety_module_node\n[SysML: SafetyModule]" <<node>> as SafeNode
+component "robot_hand_node\n[SysML: RobotHand]" <<node>> as RobotNode
+component "robot_state_publisher\n[standard ROS2]" <<node>> as RSP
+component "rviz2\n[visualisation]" <<node>> as Rviz
+component "gazebo\n[physics sim]" <<node>> as Gazebo
+
+component "/teleop/command\nmassage_paw/CommandPacket · 200 Hz" <<topic>> as T1
+component "/teleop/command_safe\nmassage_paw/CommandPacket · 200 Hz" <<topic>> as T2
+component "/robot_hand/status\nmassage_paw/StatusPacket · 100 Hz" <<topic>> as T3
+component "/robot_hand/joint_states\nsensor_msgs/JointState · 200 Hz" <<topic>> as T4
+component "/tf  /tf_static" <<topic>> as T5
+component "/operator/pose\ngeometry_msgs/PoseStamped · 200 Hz" <<topic>> as T6
+
+component "/robot_hand/set_mode\nmassage_paw/srv/SetMode" <<service>> as S1
+
+' Publish
+OpNode   --> T1
+T1       --> SafeNode
+SafeNode --> T2
+T2       --> RobotNode
+
+' Status back
+RobotNode --> T3
+T3        --> OpNode
+T3        --> SafeNode
+
+' Joint states
+RobotNode --> T4
+T4        --> RSP
+T4        --> Gazebo
+
+' TF
+RSP --> T5
+T5  --> Rviz
+
+' Operator glove input
+T6 --> OpNode
+
+' Mode service
+SafeNode --> S1 : call (ESTOP)
+OpNode   --> S1 : call (mode change)
+S1       --> RobotNode
+
+note bottom of T2
+  <b>Safety-gated</b>:
+  force_scale clamped so
+  grip_force × scale ≤ 5 N
+  (REQ-002)
+end note
+
+note bottom of S1
+  FSM transitions:
+  IDLE → CALIBRATING
+  CALIBRATING → TELEOP_ACTIVE
+  TELEOP_ACTIVE → EMERGENCY_STOP
+  etc.
+end note
+
+@enduml

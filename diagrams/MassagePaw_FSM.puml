@@ -1,0 +1,47 @@
+@startuml MassagePaw_FSM
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Monospace
+skinparam defaultFontSize 11
+skinparam shadowing false
+
+title MassagePaw — RobotHandFSM\nSysMLv2 State Machine Diagram
+
+[*] --> IDLE : powerOn\n(init actuators, zero encoders)
+
+state IDLE {
+  IDLE : entry / holdPosition
+  IDLE : do    / maintain last pose
+}
+
+state CALIBRATING {
+  CALIBRATING : entry / drive joints to hard stops\n         record encoder offsets
+}
+
+state TELEOP_ACTIVE {
+  TELEOP_ACTIVE : entry / enable control loop\n          arm watchdog (100 ms)
+  TELEOP_ACTIVE : do    / 1. receive CommandPacket\n          2. apply force_scale\n          3. IK solve → joint targets\n          4. PID @ 1 kHz\n          5. stream HandState back
+}
+
+state SAFETY_HOLD {
+  SAFETY_HOLD : entry / freeze motion\n       alert operator via haptic + audio
+}
+
+state EMERGENCY_STOP {
+  EMERGENCY_STOP : entry / retract to park pose\n          cut motor torque
+}
+
+IDLE           --> CALIBRATING    : CalibrateCmd
+CALIBRATING    --> TELEOP_ACTIVE  : CalibrationComplete
+CALIBRATING    --> IDLE           : CalibrationFailed
+
+TELEOP_ACTIVE  --> SAFETY_HOLD    : ForceThresholdExceeded\n[contactForce > 5 N]
+TELEOP_ACTIVE  --> EMERGENCY_STOP : WatchdogTimeout\n[no cmd for 100 ms]\nor EStopSignal
+TELEOP_ACTIVE  --> IDLE           : DisconnectCmd
+
+SAFETY_HOLD    --> TELEOP_ACTIVE  : OperatorAcknowledge
+SAFETY_HOLD    --> EMERGENCY_STOP : EStopSignal
+
+EMERGENCY_STOP --> IDLE           : SystemReset
+
+@enduml

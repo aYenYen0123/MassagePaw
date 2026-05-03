@@ -1,0 +1,78 @@
+@startuml MassagePaw_IBD
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Monospace
+skinparam defaultFontSize 11
+skinparam shadowing false
+skinparam componentStyle rectangle
+
+title MassagePaw — Internal Block Diagram (IBD)\nData & Control Flows
+
+' Operator side
+component "OperatorGlove\n[IMU × 6, Haptic × 10]" as Glove
+component "OperatorStation\nworkstation" as OpStation
+
+' Comms
+component "TeleOpLink\nUDP/5G/WiFi6\nAES-256 · ≤20 ms" as Link
+
+' Robot side
+component "NetworkAdapter\n[robot]" as NetAdapt
+component "OnboardComputer\n[RT Linux · 8-core]" as OBC
+component "SafetyModule\n[force≤5N · watchdog100ms]" as Safety
+component "MotorController\n[20ch · 1kHz]" as MC
+component "ForceTorqueSensor\n[6-DoF wrist]" as FTS
+
+component "Thumb\n[4 joints]" as Thumb
+component "IndexFinger\n[3 joints]" as Idx
+component "MiddleFinger\n[3 joints]" as Mid
+component "RingFinger\n[3 joints]" as Ring
+component "PinkyFinger\n[3 joints]" as Pnk
+
+component "Palm TactileArray\n[4 × TactileSensor]" as PalmT
+component "Fingertip Sensors\n[TactileSensor × 5]" as FTips
+
+' ── Flows ───────────────────────────────────────────────────────────────
+Glove      --> OpStation   : OperatorPose\n(IMU fusion)
+OpStation  --> Link        : CommandPacket\n200 Hz
+Link       --> NetAdapt    : encrypted UDP
+NetAdapt   --> OBC         : CommandPacket
+
+OBC        --> Safety      : raw cmd
+Safety     --> MC          : gated cmd\n(force_scale clamped)
+MC         --> Thumb       : joint angle targets
+MC         --> Idx         : joint angle targets
+MC         --> Mid         : joint angle targets
+MC         --> Ring        : joint angle targets
+MC         --> Pnk         : joint angle targets
+
+Thumb      --> MC          : actual angle + torque
+Idx        --> MC          : actual angle + torque
+Mid        --> MC          : actual angle + torque
+Ring       --> MC          : actual angle + torque
+Pnk        --> MC          : actual angle + torque
+
+FTips      --> OBC         : pressure map\n500 Hz
+PalmT      --> OBC         : pressure map\n500 Hz
+FTS        --> OBC         : wrist F/T\n1 kHz
+
+OBC        --> NetAdapt    : StatusPacket\n100 Hz
+NetAdapt   --> Link        : encrypted UDP
+Link       --> OpStation   : StatusPacket
+OpStation  --> Glove       : haptic vibration\n(forceReading)
+
+Safety     ..> OBC         : ESTOP signal\n(dashed = emergency path)
+
+note right of Safety
+  <b>REQ-002</b> enforced here:
+  contactForce > 5 N
+  → clamp force_scale
+  → trigger SAFETY_HOLD
+end note
+
+note right of OBC
+  <b>REQ-005</b> enforced here:
+  no cmd > 100 ms
+  → EMERGENCY_STOP
+end note
+
+@enduml

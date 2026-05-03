@@ -1,0 +1,186 @@
+@startuml MassagePaw_SystemOverview
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Monospace
+skinparam defaultFontSize 11
+skinparam shadowing false
+
+title MassagePaw — Teleoperated Robot Hand for Head Massage\nSysMLv2 Block Definition Diagram (BDD)
+
+' ─────────────────────────── Legend ───────────────────────────────────────
+legend right
+  <b>Legend</b>
+  BDD  Block Definition Diagram
+  IBD  Internal Block Diagram
+  White box  = part/block
+  <<sysml>>  = SysMLv2 annotation
+endlegend
+
+' ─────────────────────────── Top System ───────────────────────────────────
+package "System" {
+  class HeadMassageTeleOpSystem <<block>> {
+    + totalDOF : Integer = 20
+  }
+}
+
+' ─────────────────────────── Operator Side ───────────────────────────────
+package "Operator Side" {
+
+  class OperatorStation <<block>> {
+    + commandOut : TeleOpCommandIF
+    + netOut     : NetworkIF
+  }
+
+  class OperatorGlove <<block>> {
+    + hapticArray : HapticActuator[10]
+  }
+
+  class IMUSensor <<block>> {
+    + dof        : Integer = 9
+    + sampleRate : Frequency = 200 Hz
+  }
+
+  class HapticActuator <<block>> {
+    + type      : String = LRA_vibrotactile
+    + frequency : Frequency = 200 Hz
+    + maxForce  : Force = 2 N
+  }
+
+  class Display <<block>> {
+    + type        : String = stereo_3D/VR
+    + refreshRate : Frequency = 90 Hz
+  }
+
+  OperatorStation *-- OperatorGlove   : glove
+  OperatorStation *-- Display         : display
+  OperatorGlove   *-- IMUSensor       : fingerSensors[5]
+  OperatorGlove   *-- IMUSensor       : palmIMU
+  OperatorGlove   *-- HapticActuator  : hapticArray[10]
+}
+
+' ─────────────────────────── Communication ───────────────────────────────
+package "Communication" {
+  class TeleOpLink <<block>> {
+    + protocol    : String = UDP/RTP
+    + encryption  : String = AES_256
+    + maxLatency  : Latency = 20 ms  {REQ-001}
+  }
+}
+
+' ─────────────────────────── Robot Hand ──────────────────────────────────
+package "Robot Hand" {
+
+  class RobotHand <<block>> {
+    + totalDOF  : Integer = 20
+    + totalMass : Mass    = 0.85 kg  {REQ-006}
+  }
+
+  class WristAssembly <<block>> {
+    + flexionRange    : Angle = ±80°
+    + pronationRange  : Angle = ±90°
+  }
+
+  class Palm <<block>> {
+    + length : Real = 95 mm
+    + width  : Real = 85 mm
+    + mass   : Mass = 0.12 kg
+  }
+
+  class Finger <<block>> {
+    + fingerID : Integer
+    + dofCount : Integer = 3
+  }
+
+  class Thumb <<block>> {
+    + dofCount : Integer = 4
+  }
+
+  class FingerLink <<block>> {
+    + length : Real  (mm)
+    + mass   : Mass  (kg)
+  }
+
+  class Fingertip <<block>> {
+    + material : String = silicone_gel_shore_20A
+    + radius   : Real   = 8 mm
+  }
+
+  class JointActuator <<block>> {
+    + peakTorque    : Torque = 1.2 Nm
+    + maxAngle      : Angle  = 90°
+    + posResolution : Angle  = 0.05°  {REQ-003}
+  }
+
+  class TactileSensor <<block>> {
+    + resolution : Integer = 8 taxels/cm²
+    + maxPressure: Pressure = 100 kPa
+    + sampleRate : Frequency = 500 Hz  {REQ-004}
+  }
+
+  RobotHand *-- WristAssembly  : wrist
+  RobotHand *-- Palm           : palm
+  RobotHand *-- Finger         : index/middle/ring/pinky [4]
+  RobotHand *-- Thumb          : thumb
+
+  Finger *-- FingerLink        : proxLink (45 mm)
+  Finger *-- FingerLink        : midLink  (30 mm)
+  Finger *-- FingerLink        : distLink (22 mm)
+  Finger *-- Fingertip         : tip
+  Finger *-- JointActuator     : mcp/pip/dip [3]
+
+  Thumb  *-- FingerLink        : proxLink (38 mm)
+  Thumb  *-- FingerLink        : distLink (28 mm)
+  Thumb  *-- Fingertip         : tip
+  Thumb  *-- JointActuator     : cmc/mcp/ip/abduct [4]
+
+  Fingertip   *-- TactileSensor : sensor
+  Palm        *-- TactileSensor : tactileArray[4]
+  WristAssembly *-- JointActuator : flexJoint
+  WristAssembly *-- JointActuator : rotJoint
+}
+
+' ─────────────────────────── Electronics ─────────────────────────────────
+package "Electronics" {
+  class MotorController <<block>> {
+    + channels  : Integer = 20
+    + loopRate  : Frequency = 1 kHz
+  }
+  class OnboardComputer <<block>> {
+    + cpuCores  : Integer = 8
+    + ram       : Real    = 8 GB
+    + osRealtime: Boolean = true
+  }
+  class NetworkAdapter <<block>> {
+    + protocol   : String = UDP/5G/WiFi6
+    + maxLatency : Latency = 5 ms
+  }
+  class ForceTorqueSensor <<block>> {
+    + dof      : Integer = 6
+    + maxForce : Force   = 50 N
+  }
+  class SafetyModule <<block>> {
+    + maxContactForce : Force   = 5 N  {REQ-002}
+    + watchdogPeriod  : Latency = 100 ms {REQ-005}
+  }
+
+  RobotHand *-- MotorController
+  RobotHand *-- OnboardComputer
+  RobotHand *-- NetworkAdapter
+  RobotHand *-- ForceTorqueSensor : wristFTS
+  RobotHand *-- SafetyModule
+
+  MotorController  --> OnboardComputer : controlled by
+  SafetyModule     --> OnboardComputer : safetyIF
+}
+
+' ─────────────────────────── System Composition ──────────────────────────
+HeadMassageTeleOpSystem *-- OperatorStation : opStation
+HeadMassageTeleOpSystem *-- TeleOpLink      : commsLink
+HeadMassageTeleOpSystem *-- RobotHand       : robotHand
+
+OperatorStation --> TeleOpLink  : commandPackets →
+TeleOpLink      --> RobotHand   : → commandPackets
+RobotHand       --> TeleOpLink  : ← statusPackets
+TeleOpLink      --> OperatorStation : ← statusPackets
+
+@enduml

@@ -1,0 +1,31 @@
+# Parameter file — maps to SysMLv2 part attribute values
+# Override any of these via ros2 param set or launch argument
+
+robot_hand:
+  ros__parameters:
+    # REQ-002: maximum allowable contact force (N)
+    max_contact_force_n: 5.0
+    # REQ-005: watchdog timeout (ms)
+    watchdog_timeout_ms: 100.0
+    # Actuator control loop rate (Hz) — REQ-003
+    control_loop_hz: 1000
+    # Status publish rate (Hz)
+    status_publish_hz: 100
+    # Battery simulation initial level (%)
+    battery_pct: 100.0
+
+operator_station:
+  ros__parameters:
+    # Safety force scale factor (0.0–1.0) applied to all commands
+    force_scale: 0.6
+    # Default massage technique (0=EFFLEURAGE)
+    technique: 0
+    # Simulated grip force (N)
+    grip_force_n: 1.5
+    # Command publish rate (Hz) — keeps end-to-end latency ≤ 20 ms (REQ-001)
+    command_rate_hz: 200
+
+safety_module:
+  ros__parameters:
+    max_force_n: 5.0
+    watchdog_ms: 100.0
